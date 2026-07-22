@@ -1,4 +1,102 @@
 (function bootstrap() {
+  const previewMode = new URLSearchParams(window.location.search).get("preview") === "1";
+
+  if (typeof window.activeDesk === "undefined" && previewMode) {
+    const tickListeners = [];
+    const errorListeners = [];
+    const hotkeyListeners = [];
+    let previewTimer = null;
+    let launchAtLogin = false;
+    let previewLicense = {
+      state: "inactive",
+      valid: false,
+      message: "Activate a license key to unlock ActiveDesk.",
+      planId: null,
+      planLabel: null,
+      email: "",
+      expiresAt: null,
+      issuedAt: null,
+    };
+
+    window.activeDesk = {
+      getApps: async () => ({
+        apps: [
+          { id: "teams", label: "Microsoft Teams", running: true },
+          { id: "slack", label: "Slack", running: false },
+          { id: "zoom", label: "Zoom", running: false },
+        ],
+      }),
+      start: async ({ intervalSeconds }) => {
+        if (previewTimer) clearInterval(previewTimer);
+        const seconds = Math.max(5, Number(intervalSeconds) || 60);
+        previewTimer = setInterval(() => {
+          tickListeners.forEach((listener) => listener({ timestamp: Date.now() }));
+        }, seconds * 1000);
+        tickListeners.forEach((listener) => listener({ timestamp: Date.now() }));
+        return { ok: true, intervalSeconds: seconds };
+      },
+      stop: async () => {
+        if (previewTimer) {
+          clearInterval(previewTimer);
+          previewTimer = null;
+        }
+        return { ok: true };
+      },
+      getLicenseStatus: async () => previewLicense,
+      activateLicense: async (licenseKey) => {
+        if (!String(licenseKey || "").trim()) {
+          return {
+            ...previewLicense,
+            state: "invalid",
+            message: "Paste a license key to activate preview mode.",
+          };
+        }
+        previewLicense = {
+          state: "active",
+          valid: true,
+          message: "Preview license active.",
+          planId: "lifetime",
+          planLabel: "Lifetime",
+          email: "preview@example.com",
+          expiresAt: null,
+          issuedAt: Date.now(),
+        };
+        return previewLicense;
+      },
+      clearLicense: async () => {
+        previewLicense = {
+          state: "inactive",
+          valid: false,
+          message: "Activate a license key to unlock ActiveDesk.",
+          planId: null,
+          planLabel: null,
+          email: "",
+          expiresAt: null,
+          issuedAt: null,
+        };
+        return previewLicense;
+      },
+      setAlwaysOnTop: async () => ({ ok: true }),
+      getLaunchAtLogin: async () => ({ openAtLogin: launchAtLogin }),
+      setLaunchAtLogin: async (openAtLogin) => {
+        launchAtLogin = Boolean(openAtLogin);
+        return { ok: true };
+      },
+      onTick: (callback) => tickListeners.push(callback),
+      onError: (callback) => errorListeners.push(callback),
+      onHotkeyToggle: (callback) => hotkeyListeners.push(callback),
+      openExternal: async (url) => {
+        try {
+          window.open(url, "_blank", "noopener,noreferrer");
+          return { ok: true };
+        } catch {
+          errorListeners.forEach((listener) => listener({ message: "Could not open link." }));
+          return { ok: false };
+        }
+      },
+    };
+  }
+
   if (typeof window.activeDesk === "undefined") {
     const shell = document.querySelector(".shell");
     if (shell) {
@@ -6,17 +104,20 @@
       <section class="panel wrong-launch">
         <h1 class="wrong-title">Use the ActiveDesk program, not this HTML file</h1>
         <p class="wrong-text">
-          The list of apps (Microsoft Teams, Slack, and others) comes from Windows
-          process names. A browser cannot access that, so nothing will show as running here.
+          The list of apps (Microsoft Teams, Slack, and others) comes from the
+          Electron desktop app. A browser cannot access that, so nothing will show as running here.
         </p>
         <p class="wrong-text"><strong>Run the real app:</strong></p>
         <ul class="wrong-list">
           <li>Open a terminal in this folder and run <code class="wrong-code">npm start</code></li>
-          <li>Or run your built <code class="wrong-code">ActiveDesk.exe</code> / installer from <code class="wrong-code">dist-electron</code></li>
+          <li>Or run your built <code class="wrong-code">ActiveDesk</code> app from <code class="wrong-code">dist-electron</code></li>
         </ul>
         <p class="wrong-note">
-          Double-clicking <code class="wrong-code">index.html</code> only opens Chrome or Edge.
-          Teams can be open on your PC and this page will still not detect it.
+          Double-clicking <code class="wrong-code">index.html</code> only opens it in your default browser.
+          Teams can be open and this page will still not detect it.
+        </p>
+        <p class="wrong-note">
+          For a visual-only preview, open <code class="wrong-code">index.html?preview=1</code>.
         </p>
       </section>`;
     }
@@ -38,6 +139,14 @@ const sessionTimeEl = document.getElementById("sessionTime");
 const refreshAppsBtn = document.getElementById("refreshApps");
 const alwaysOnTopEl = document.getElementById("alwaysOnTop");
 const launchAtLoginEl = document.getElementById("launchAtLogin");
+const licenseStateEl = document.getElementById("licenseState");
+const licenseDetailEl = document.getElementById("licenseDetail");
+const licensePlanEl = document.getElementById("licensePlan");
+const licenseExpiryEl = document.getElementById("licenseExpiry");
+const licenseKeyEl = document.getElementById("licenseKey");
+const activateLicenseBtn = document.getElementById("activateLicenseBtn");
+const clearLicenseBtn = document.getElementById("clearLicenseBtn");
+const purchaseButtons = document.querySelectorAll(".purchase-btn");
 const presetButtons = document.querySelectorAll(".preset");
 
 let isRunning = false;
@@ -48,6 +157,7 @@ let sessionStartedAt = null;
 let currentIntervalSec = 60;
 let nextPulseAt = 0;
 let tickCount = 0;
+let licenseStatus = null;
 
 let scanErrorClearId = null;
 
@@ -60,6 +170,73 @@ function showScanError(message) {
     engineScanEl.setAttribute("hidden", "");
     scanErrorClearId = null;
   }, 5000);
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(Number(value));
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString();
+}
+
+function setStartAvailability(canStart, message) {
+  toggleBtn.disabled = !canStart;
+  toggleBtn.title = canStart ? "" : message || "Activate a license to start ActiveDesk.";
+  if (!canStart && !isRunning) {
+    detailEl.textContent = message || "Activate a license to start ActiveDesk.";
+  }
+}
+
+function renderLicenseStatus(status) {
+  licenseStatus = status;
+  if (!licenseStateEl) return;
+
+  const statusLabels = {
+    active: "Active",
+    trial: "Trial",
+    trial_expired: "Trial Expired",
+    inactive: "Not activated",
+    invalid: "Invalid key",
+    expired: "Expired",
+    unconfigured: "Setup needed",
+  };
+
+  licenseStateEl.textContent = statusLabels[status?.state] || "Unknown";
+  licenseDetailEl.textContent =
+    status?.message || "Activate a license key after purchase to unlock ActiveDesk.";
+  licensePlanEl.textContent = status?.planLabel || "-";
+
+  if (status?.valid && !status?.expiresAt) {
+    licenseExpiryEl.textContent = "Forever";
+  } else if (status?.expiresAt && status?.state === "trial") {
+    licenseExpiryEl.textContent = formatDateTime(status.expiresAt);
+  } else {
+    licenseExpiryEl.textContent = formatDateTime(status?.expiresAt);
+  }
+
+  clearLicenseBtn.hidden = !(status && status.state !== "inactive" && status.state !== "unconfigured");
+  
+  // Trial: allow start. Trial expired: block start
+  const canStart = status?.valid && status?.state !== "trial_expired";
+  setStartAvailability(canStart, status?.message);
+}
+
+async function loadLicenseStatus() {
+  if (!window.activeDesk?.getLicenseStatus) return;
+  try {
+    renderLicenseStatus(await window.activeDesk.getLicenseStatus());
+  } catch {
+    renderLicenseStatus({
+      state: "invalid",
+      valid: false,
+      message: "Could not read license state.",
+      planId: null,
+      planLabel: null,
+      email: "",
+      expiresAt: null,
+      issuedAt: null,
+    });
+  }
 }
 
 function setBodyRunning(running) {
@@ -251,6 +428,10 @@ async function stop() {
 
 async function toggleRun() {
   try {
+    if (!licenseStatus?.valid) {
+      detailEl.textContent = licenseStatus?.message || "Activate a license to start ActiveDesk.";
+      return;
+    }
     if (isRunning) await stop();
     else await start();
   } catch (err) {
@@ -304,7 +485,20 @@ window.activeDesk.onHotkeyToggle(() => {
   void toggleRun();
 });
 
-/* PayFast support — same flow as your extension (USD → ZAR, receiver, return/cancel/notify URLs). */
+const PAYFAST_CONFIG = {
+  receiver: "23594634",
+  returnUrl: "https://www.trevnoctilla.com/payment/return",
+  cancelUrl: "https://www.trevnoctilla.com/payment/cancel",
+  notifyUrl: "https://www.trevnoctilla.com/payment/notify",
+};
+
+const PURCHASE_PLANS = {
+  lifetime: { label: "Lifetime", usdAmount: 10, itemName: "ActiveDesk Lifetime License" },
+  weekly: { label: "1 Week", usdAmount: 2, itemName: "ActiveDesk Weekly License" },
+  monthly: { label: "1 Month", usdAmount: 5, itemName: "ActiveDesk Monthly License" },
+};
+
+/* PayFast checkout reuse — USD input converted to ZAR before redirect. */
 const EXCHANGE_RATE_CACHE_KEY = "activedesk_usd_to_zar_rate";
 const EXCHANGE_RATE_CACHE_DURATION = 60 * 60 * 1000;
 const EXCHANGE_RATE_APIS = [
@@ -352,24 +546,25 @@ async function getUSDToZARRate() {
   return 18.5;
 }
 
-async function openPayFastSupport() {
-  const btn = document.getElementById("payfastBtn");
-  if (!btn || !window.activeDesk?.openExternal) return;
+async function openPurchase(planId, btn) {
+  const plan = PURCHASE_PLANS[planId];
+  if (!plan || !btn || !window.activeDesk?.openExternal) return;
   const originalText = btn.textContent;
   btn.textContent = "Processing...";
   btn.disabled = true;
   try {
     const rate = await getUSDToZARRate();
-    const usdAmount = 1.0;
-    const zarAmount = usdAmount * rate;
+    const zarAmount = plan.usdAmount * rate;
     const params = new URLSearchParams({
       cmd: "_paynow",
-      receiver: "23594634",
-      return_url: "https://www.trevnoctilla.com/payment/return",
-      cancel_url: "https://www.trevnoctilla.com/payment/cancel",
-      notify_url: "https://www.trevnoctilla.com/payment/notify",
+      receiver: PAYFAST_CONFIG.receiver,
+      return_url: PAYFAST_CONFIG.returnUrl,
+      cancel_url: PAYFAST_CONFIG.cancelUrl,
+      notify_url: PAYFAST_CONFIG.notifyUrl,
       amount: zarAmount.toFixed(2),
-      item_name: "Buy Me a Coffee Support",
+      item_name: plan.itemName,
+      custom_str1: planId,
+      custom_str2: "ActiveDesk",
     });
     const payUrl = `https://payment.payfast.io/eng/process?${params.toString()}`;
     await window.activeDesk.openExternal(payUrl);
@@ -381,9 +576,33 @@ async function openPayFastSupport() {
   }
 }
 
-const payfastBtn = document.getElementById("payfastBtn");
-if (payfastBtn) {
-  payfastBtn.addEventListener("click", () => void openPayFastSupport());
+if (activateLicenseBtn) {
+  activateLicenseBtn.addEventListener("click", async () => {
+    if (!window.activeDesk?.activateLicense) return;
+    const key = licenseKeyEl.value.trim();
+    renderLicenseStatus(await window.activeDesk.activateLicense(key));
+  });
+}
+
+if (clearLicenseBtn) {
+  clearLicenseBtn.addEventListener("click", async () => {
+    if (!window.activeDesk?.clearLicense) return;
+    licenseKeyEl.value = "";
+    renderLicenseStatus(await window.activeDesk.clearLicense());
+  });
+}
+
+purchaseButtons.forEach((button) => {
+  button.addEventListener("click", () => void openPurchase(button.dataset.plan, button));
+});
+
+if (licenseKeyEl) {
+  licenseKeyEl.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      activateLicenseBtn?.click();
+    }
+  });
 }
 
 (async function init() {
@@ -394,6 +613,7 @@ if (payfastBtn) {
     launchAtLoginEl.checked = false;
   }
   updatePresetSelection();
+  await loadLicenseStatus();
 })();
 
 setUiState(false);

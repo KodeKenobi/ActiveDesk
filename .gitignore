@@ -6,3 +6,5 @@ Thumbs.db
 .env
 .env.*
 *.local
+license-keys/
+sales/*.jsonl

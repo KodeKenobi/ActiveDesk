@@ -6,8 +6,13 @@
   "author": "ActiveDesk",
   "license": "MIT",
   "scripts": {
+    "postinstall": "node scripts/ensure-electron-runtime.js",
     "start": "electron .",
-    "build:win": "electron-builder --win nsis --x64"
+    "build:mac": "electron-builder --mac dmg zip",
+    "build:win": "electron-builder --win nsis --x64",
+    "build:all": "electron-builder --mac dmg zip --win nsis",
+    "license:init": "node scripts/license-cli.js init",
+    "license:generate": "node scripts/license-cli.js generate"
   },
   "build": {
     "appId": "com.activedesk.app",
@@ -16,6 +21,7 @@
       "output": "dist-electron"
     },
     "files": [
+      "assets/**/*",
       "electron/**/*",
       "build/icon.png",
       "icons/**/*",
@@ -30,6 +36,13 @@
       ],
       "icon": "build/icon.png"
     },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.icns"
+    },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
@@ -38,5 +51,8 @@
   "devDependencies": {
     "electron": "^28.3.3",
     "electron-builder": "^24.13.3"
+  },
+  "allowScripts": {
+    "electron@28.3.3": true
   }
 }

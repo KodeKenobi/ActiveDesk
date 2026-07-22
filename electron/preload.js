@@ -2,6 +2,9 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("activeDesk", {
   getApps: () => ipcRenderer.invoke("activedesk:getApps"),
+  getLicenseStatus: () => ipcRenderer.invoke("activedesk:getLicenseStatus"),
+  activateLicense: (licenseKey) => ipcRenderer.invoke("activedesk:activateLicense", licenseKey),
+  clearLicense: () => ipcRenderer.invoke("activedesk:clearLicense"),
   start: (payload) => ipcRenderer.invoke("activedesk:start", payload),
   stop: () => ipcRenderer.invoke("activedesk:stop"),
   setAlwaysOnTop: (flag) => ipcRenderer.invoke("activedesk:setAlwaysOnTop", flag),
