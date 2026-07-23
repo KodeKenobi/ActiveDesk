@@ -1,14 +1,14 @@
 const SITE_CONFIG = {
   downloads: {
-    mac: "https://github.com/your-username/ActiveDesk/releases/latest",
-    win: "https://github.com/your-username/ActiveDesk/releases/latest",
+    mac: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.1/ActiveDesk-1.0.0-arm64.dmg",
+    win: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.1/ActiveDesk.Setup.1.0.0.exe",
   },
   supportEmail: "kodekenobi@gmail.com",
   payfast: {
     receiver: "23594634",
     returnUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
-    cancelUrl: "https://www.trevnoctilla.com/payment/cancel",
-    notifyUrl: "https://www.trevnoctilla.com/payment/notify",
+    cancelUrl: "https://kodekenobi.github.io/activedesk/",
+    notifyUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
   },
   plans: {
     lifetime: {
