@@ -120,7 +120,7 @@ function getTrialStatus() {
   const startTime = Number(state.trialStartedAt);
   const now = Date.now();
   const hoursElapsed = (now - startTime) / (1000 * 60 * 60);
-  const hoursRemaining = Math.max(0, 24 - hoursElapsed);
+  const hoursRemaining = Math.max(0, 168 - hoursElapsed);
 
   return {
     isActive: hoursRemaining > 0,

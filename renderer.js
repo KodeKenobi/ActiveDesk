@@ -487,9 +487,9 @@ window.activeDesk.onHotkeyToggle(() => {
 
 const PAYFAST_CONFIG = {
   receiver: "23594634",
-  returnUrl: "https://www.trevnoctilla.com/payment/return",
-  cancelUrl: "https://www.trevnoctilla.com/payment/cancel",
-  notifyUrl: "https://www.trevnoctilla.com/payment/notify",
+  returnUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
+  cancelUrl: "https://kodekenobi.github.io/activedesk/",
+  notifyUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
 };
 
 const PURCHASE_PLANS = {
