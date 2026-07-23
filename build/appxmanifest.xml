@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
-  <Identity Name="KodeKenobi.ActiveDesk" Publisher="CN=Kode Kenobi" Version="1.0.1.0" />
+  <Identity Name="KodeKenobi.ActiveDesk" Publisher="CN=D56D5F59-EA92-44E2-B2F6-E550F9AA2C21" Version="1.0.1.0" />
   <Properties>
     <DisplayName>ActiveDesk</DisplayName>
     <PublisherDisplayName>Kode Kenobi</PublisherDisplayName>
