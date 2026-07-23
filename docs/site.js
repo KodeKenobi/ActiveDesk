@@ -214,6 +214,27 @@ function initScrollFadeAnimation() {
   });
 }
 
+function initMobileMenu() {
+  const mobileMenuBtn = document.getElementById("mobileMenuBtn");
+  const mobileMenu = document.getElementById("mobileMenu");
+  
+  if (!mobileMenuBtn || !mobileMenu) return;
+  
+  mobileMenuBtn.addEventListener("click", () => {
+    mobileMenuBtn.classList.toggle("active");
+    mobileMenu.classList.toggle("active");
+  });
+  
+  // Close menu when clicking on a link
+  mobileMenu.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      mobileMenuBtn.classList.remove("active");
+      mobileMenu.classList.remove("active");
+    });
+  });
+}
+
 updateDownloadLinks();
 initScrollFadeAnimation();
+initMobileMenu();
 bindPurchaseButtons();
