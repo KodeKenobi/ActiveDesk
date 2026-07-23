@@ -24,6 +24,109 @@ html {
   scroll-behavior: smooth;
 }
 
+@keyframes statusActive {
+  0% {
+    color: #FFA500;
+  }
+  100% {
+    color: #1a8c3d;
+  }
+}
+
+#active {
+  animation: statusActive 2s ease-in-out forwards;
+}
+
+@keyframes spillIn {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes spillOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+}
+
+.fade-scroll {
+  opacity: 0;
+}
+
+.fade-scroll.visible {
+  animation: spillIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.fade-scroll.hidden {
+  animation: spillOut 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes mouseCursor {
+  0% {
+    transform: translate(0, 0);
+  }
+  7% {
+    transform: translate(3px, -5px);
+  }
+  13% {
+    transform: translate(-6px, 2px);
+  }
+  19% {
+    transform: translate(5px, 4px);
+  }
+  26% {
+    transform: translate(-3px, -7px);
+  }
+  33% {
+    transform: translate(7px, -2px);
+  }
+  40% {
+    transform: translate(-4px, 5px);
+  }
+  47% {
+    transform: translate(6px, -4px);
+  }
+  54% {
+    transform: translate(-5px, 3px);
+  }
+  61% {
+    transform: translate(2px, -6px);
+  }
+  68% {
+    transform: translate(-7px, 4px);
+  }
+  75% {
+    transform: translate(4px, 6px);
+  }
+  82% {
+    transform: translate(-2px, -4px);
+  }
+  89% {
+    transform: translate(5px, -3px);
+  }
+  96% {
+    transform: translate(-6px, 5px);
+  }
+  100% {
+    transform: translate(0, 0);
+  }
+}
+
+#mouse {
+  animation: mouseCursor 3s ease-in-out infinite;
+  display: inline-block;
+}
+
 body {
   margin: 0;
   color: var(--ink);
@@ -95,6 +198,29 @@ a {
   color: var(--ink-soft);
   font-size: 0.95rem;
   font-weight: 500;
+  position: relative;
+  display: inline-flex;
+  overflow: hidden;
+  height: 1.4em;
+}
+
+.topbar-links a span {
+  display: block;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.topbar-links a span:last-child {
+  color: var(--ink);
+  position: absolute;
+  top: 1.4em;
+}
+
+.topbar-links a:hover span:first-child {
+  transform: translateY(-1.4em);
+}
+
+.topbar-links a:hover span:last-child {
+  transform: translateY(-1.4em);
 }
 
 .hero {

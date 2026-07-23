@@ -170,5 +170,50 @@ function bindPurchaseButtons() {
   });
 }
 
+function initScrollFadeAnimation() {
+  const fadeElements = document.querySelectorAll(".fade-scroll");
+  
+  fadeElements.forEach((element) => {
+    element.dataset.animating = "false";
+  });
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const isAnimating = entry.target.dataset.animating === "true";
+      if (isAnimating) return;
+      
+      if (entry.isIntersecting && !entry.target.classList.contains("visible")) {
+        entry.target.dataset.animating = "true";
+        entry.target.classList.remove("hidden");
+        entry.target.classList.add("visible");
+        
+        setTimeout(() => {
+          entry.target.dataset.animating = "false";
+        }, 700);
+      } else if (!entry.isIntersecting && entry.target.classList.contains("visible")) {
+        entry.target.dataset.animating = "true";
+        entry.target.classList.remove("visible");
+        entry.target.classList.add("hidden");
+        
+        setTimeout(() => {
+          entry.target.dataset.animating = "false";
+        }, 700);
+      }
+    });
+  }, {
+    threshold: 0.2,
+    rootMargin: "50px 0px 50px 0px",
+  });
+  
+  fadeElements.forEach((element) => {
+    const rect = element.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      element.classList.add("visible");
+    }
+    observer.observe(element);
+  });
+}
+
 updateDownloadLinks();
+initScrollFadeAnimation();
 bindPurchaseButtons();
