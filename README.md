@@ -2,6 +2,16 @@
 
 Electron desktop app to help keep your presence active while using Teams, Slack, and similar collaboration tools.
 
+## Installation (macOS)
+
+**One-click installation:**
+
+1. Download [install-mac.sh](https://raw.githubusercontent.com/KodeKenobi/ActiveDesk/main/install-mac.sh)
+2. Double-click the file
+3. Follow the prompts
+
+The installer will download the latest version, install it to your Applications folder, and launch the app.
+
 ## Licensing
 
 ActiveDesk now supports offline license activation with three plans:

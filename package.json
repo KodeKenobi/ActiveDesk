@@ -10,6 +10,7 @@
     "start": "electron .",
     "build:mac": "electron-builder --mac dmg zip",
     "build:win": "electron-builder --win nsis --x64",
+    "build:win:appx": "electron-builder --win appx --x64",
     "build:all": "electron-builder --mac dmg zip --win nsis",
     "license:init": "node scripts/license-cli.js init",
     "license:generate": "node scripts/license-cli.js generate"
@@ -32,9 +33,15 @@
     ],
     "win": {
       "target": [
-        "nsis"
+        "nsis",
+        "appx"
       ],
       "icon": "build/icon.png"
+    },
+    "appx": {
+      "identityName": "KodeKenobi.ActiveDesk",
+      "publisher": "CN=Ignatius Mutizwa",
+      "publisherDisplayName": "Ignatius Mutizwa"
     },
     "mac": {
       "target": [
