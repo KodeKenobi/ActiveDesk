@@ -26,13 +26,19 @@ jobs:
       
       - name: Build NSIS installer
         run: npm run build:win
+        env:
+          GH_TOKEN: ""
       
       - name: Build APPX installer
         run: npm run build:win:appx
+        env:
+          GH_TOKEN: ""
       
       - name: Upload artifacts to release
         uses: softprops/action-gh-release@v1
         with:
-          files: dist-electron/**/*.{exe,appx}
+          files: |
+            dist-electron/*.exe
+            dist-electron/*.appx
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
