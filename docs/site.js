@@ -171,7 +171,8 @@ function bindPurchaseButtons() {
 }
 
 function initScrollFadeAnimation() {
-  const fadeElements = document.querySelectorAll(".fade-scroll");
+  // Select all elements with animation classes
+  const fadeElements = document.querySelectorAll(".fade-scroll, .slide-in-left, .slide-in-right, .drop-in-down, .faq-item, .faq-item-left, .faq-item-right");
   
   fadeElements.forEach((element) => {
     element.dataset.animating = "false";
@@ -219,22 +220,65 @@ function initMobileMenu() {
   const mobileMenu = document.getElementById("mobileMenu");
   
   if (!mobileMenuBtn || !mobileMenu) return;
+
+  function setMenuState(isOpen) {
+    mobileMenuBtn.classList.toggle("active", isOpen);
+    mobileMenu.classList.toggle("active", isOpen);
+    document.body.classList.toggle("menu-open", isOpen);
+  }
   
   mobileMenuBtn.addEventListener("click", () => {
-    mobileMenuBtn.classList.toggle("active");
-    mobileMenu.classList.toggle("active");
+    const isOpen = !mobileMenu.classList.contains("active");
+    setMenuState(isOpen);
   });
   
   // Close menu when clicking on a link
   mobileMenu.querySelectorAll("a").forEach((link) => {
     link.addEventListener("click", () => {
-      mobileMenuBtn.classList.remove("active");
-      mobileMenu.classList.remove("active");
+      setMenuState(false);
     });
   });
+}
+
+function initDownloadButtonGlow() {
+  const downloadButtons = document.querySelectorAll(".btn-download");
+  const statusHeading = document.querySelector(".status-heading");
+  const glowElements = [...downloadButtons];
+  if (statusHeading) glowElements.push(statusHeading);
+  
+  function updateGlowState() {
+    glowElements.forEach((element) => {
+      const rect = element.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportCenter = viewportHeight / 2;
+      
+      // Calculate element center
+      const elementCenter = (rect.top + rect.bottom) / 2;
+      
+      // Only glow when element center is within ±80px of viewport center
+      const tolerance = 80;
+      const isNearCenter = Math.abs(elementCenter - viewportCenter) <= tolerance;
+      
+      // Check if element is visible in viewport
+      const isInViewport = rect.bottom > 0 && rect.top < viewportHeight;
+      
+      if (isInViewport && isNearCenter) {
+        element.classList.add("glow-active");
+      } else {
+        element.classList.remove("glow-active");
+      }
+    });
+  }
+  
+  // Check on scroll
+  window.addEventListener("scroll", updateGlowState, { passive: true });
+  
+  // Initial check
+  updateGlowState();
 }
 
 updateDownloadLinks();
 initScrollFadeAnimation();
 initMobileMenu();
+initDownloadButtonGlow();
 bindPurchaseButtons();
