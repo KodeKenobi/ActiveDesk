@@ -25,12 +25,12 @@ jobs:
         run: npm install
       
       - name: Build NSIS installer
-        run: npm run build:win
+        run: npm run build:win -- --publish=never
         env:
           GH_TOKEN: ""
       
       - name: Build APPX installer
-        run: npm run build:win:appx
+        run: npm run build:win:appx -- --publish=never
         env:
           GH_TOKEN: ""
       
