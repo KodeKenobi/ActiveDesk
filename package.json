@@ -1,6 +1,6 @@
 {
   "name": "activedesk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ActiveDesk - keep your presence active",
   "main": "electron/main.js",
   "author": "ActiveDesk",

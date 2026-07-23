@@ -486,10 +486,19 @@ window.activeDesk.onHotkeyToggle(() => {
 });
 
 const PAYFAST_CONFIG = {
-  receiver: "23594634",
+  mode: "sandbox", // set to "sandbox" when testing
+  receiverByMode: {
+    live: "23594634",
+    sandbox: "10043520",
+  },
   returnUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
   cancelUrl: "https://kodekenobi.github.io/activedesk/",
-  notifyUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
+  notifyUrl: "https://nibzfmjwisfdmwublvyu.supabase.co/functions/v1/payfast-webhook",
+};
+
+const PAYFAST_PROCESS_URLS = {
+  live: "https://payment.payfast.io/eng/process",
+  sandbox: "https://sandbox.payfast.co.za/eng/process",
 };
 
 const PURCHASE_PLANS = {
@@ -549,27 +558,34 @@ async function getUSDToZARRate() {
 async function openPurchase(planId, btn) {
   const plan = PURCHASE_PLANS[planId];
   if (!plan || !btn || !window.activeDesk?.openExternal) return;
+
   const originalText = btn.textContent;
   btn.textContent = "Processing...";
   btn.disabled = true;
   try {
     const rate = await getUSDToZARRate();
     const zarAmount = plan.usdAmount * rate;
+    const returnUrl = `${PAYFAST_CONFIG.returnUrl}?${new URLSearchParams({
+      plan: planId,
+    }).toString()}`;
     const params = new URLSearchParams({
       cmd: "_paynow",
-      receiver: PAYFAST_CONFIG.receiver,
-      return_url: PAYFAST_CONFIG.returnUrl,
+      receiver: PAYFAST_CONFIG.receiverByMode?.[mode] || PAYFAST_CONFIG.receiverByMode.live,
+      return_url: returnUrl,
       cancel_url: PAYFAST_CONFIG.cancelUrl,
       notify_url: PAYFAST_CONFIG.notifyUrl,
       amount: zarAmount.toFixed(2),
       item_name: plan.itemName,
-      custom_str1: planId,
-      custom_str2: "ActiveDesk",
+      custom_str2: planId,
     });
-    const payUrl = `https://payment.payfast.io/eng/process?${params.toString()}`;
+    const mode = PAYFAST_CONFIG.mode === "sandbox" ? "sandbox" : "live";
+    const processUrl = PAYFAST_PROCESS_URLS[mode];
+    const payUrl = `${processUrl}?${params.toString()}`;
     await window.activeDesk.openExternal(payUrl);
+    detailEl.textContent = "Payment page opened. After paying, claim your key on the license dashboard.";
   } catch (e) {
     console.error("PayFast open failed:", e);
+    detailEl.textContent = "Could not open payment page. Please try again.";
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;

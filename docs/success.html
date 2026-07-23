@@ -228,40 +228,27 @@
             return;
           }
 
-          // Check if license already exists for this email+plan (prevent duplicates)
+          // Check if a paid license already exists for this email and plan.
           const { data: existing, error: existError } = await supabase
             .from("licenses")
             .select("license_key")
             .eq("email", email)
             .eq("plan", plan)
-            .order("created_at", { ascending: false })
+            .order("issued_at", { ascending: false })
             .limit(1);
 
-          let licenseKey;
-
-          if (existing && existing.length > 0) {
-            // Use existing key if found
-            licenseKey = existing[0].license_key;
-          } else {
-            // Generate new key (server-side via Edge Function)
-            const { data: generatedData, error: genError } = await supabase.functions.invoke(
-              "generate-license",
-              {
-                body: {
-                  email,
-                  plan,
-                },
-              }
-            );
-
-            if (genError || !generatedData?.license_key) {
-              console.error("Generation error:", genError);
-              showError("Failed to generate license key. Please contact support.");
-              return;
-            }
-
-            licenseKey = generatedData.license_key;
+          if (existError) {
+            console.error("Lookup error:", existError);
+            showError("Could not confirm your payment yet. Please try again in a minute.");
+            return;
           }
+
+          if (!existing || existing.length === 0) {
+            showError("No paid license was found for this email and plan yet. Please wait a minute and refresh.");
+            return;
+          }
+
+          const licenseKey = existing[0].license_key;
 
           showSuccess(email, plan, licenseKey);
         } catch (error) {

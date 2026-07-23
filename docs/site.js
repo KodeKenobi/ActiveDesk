@@ -1,14 +1,18 @@
 const SITE_CONFIG = {
+  payfastMode: "sandbox", // set to "sandbox" when testing
   downloads: {
-    mac: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.1/ActiveDesk-1.0.0-arm64.dmg",
-    win: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.1/ActiveDesk.Setup.1.0.0.exe",
+    mac: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.1/ActiveDesk-1.0.1-arm64.dmg",
+    win: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.1/ActiveDesk.Setup.1.0.1.exe",
   },
   supportEmail: "kodekenobi@gmail.com",
   payfast: {
-    receiver: "23594634",
+    receiverByMode: {
+      live: "23594634",
+      sandbox: "10043520",
+    },
     returnUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
     cancelUrl: "https://kodekenobi.github.io/activedesk/",
-    notifyUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
+    notifyUrl: "https://nibzfmjwisfdmwublvyu.supabase.co/functions/v1/payfast-webhook",
   },
   plans: {
     lifetime: {
@@ -24,6 +28,11 @@ const SITE_CONFIG = {
       itemName: "ActiveDesk Monthly License",
     },
   },
+};
+
+const PAYFAST_PROCESS_URLS = {
+  live: "https://payment.payfast.io/eng/process",
+  sandbox: "https://sandbox.payfast.co.za/eng/process",
 };
 
 const EXCHANGE_RATE_CACHE_KEY = "activedesk_site_usd_to_zar_rate";
@@ -130,31 +139,31 @@ async function openCheckout(planId, button) {
   setPayStatus("Preparing checkout...");
 
   try {
-    // Prompt for email (user will enter it for license key)
-    const email = prompt("Enter your email for the license key:");
-    if (!email) {
-      setPayStatus("Checkout cancelled.");
-      return;
-    }
-
     const rate = await getUsdToZarRate();
-    
-    // Use your PayFast "Pay Now" link here
-    // You can find this in PayFast dashboard under "Generate Pay Now Options"
-    const payNowLink = `https://www.payfast.co.za/pay/${SITE_CONFIG.payfast.receiver}`; // Replace with your actual Pay Now link
-    
-    // Append return URL with email and plan as parameters
+    const zarAmount = plan.usdAmount * rate;
+
     const returnParams = new URLSearchParams({
-      email,
       plan: planId,
     });
-    
+
     const fullReturnUrl = `${SITE_CONFIG.payfast.returnUrl}?${returnParams.toString()}`;
-    
-    // For now, direct to PayFast (you'll need to update the Pay Now link in PayFast settings)
-    // This opens the default Pay Now link - you should use the specific one from your PayFast account
-    window.location.href = payNowLink;
-    
+
+    const mode = SITE_CONFIG.payfastMode === "sandbox" ? "sandbox" : "live";
+    const receiver = SITE_CONFIG.payfast.receiverByMode?.[mode] || SITE_CONFIG.payfast.receiverByMode.live;
+    const params = new URLSearchParams({
+      cmd: "_paynow",
+      receiver,
+      return_url: fullReturnUrl,
+      cancel_url: SITE_CONFIG.payfast.cancelUrl,
+      notify_url: SITE_CONFIG.payfast.notifyUrl,
+      amount: zarAmount.toFixed(2),
+      item_name: plan.itemName,
+      custom_str2: planId,
+    });
+
+    const processUrl = PAYFAST_PROCESS_URLS[mode];
+    window.location.href = `${processUrl}?${params.toString()}`;
+
     setPayStatus("Redirecting to payment...");
   } catch {
     setPayStatus("Could not open checkout right now. Please try again.");

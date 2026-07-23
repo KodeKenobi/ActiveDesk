@@ -228,6 +228,14 @@
         const licenseBox = document.getElementById("licenseBox");
         const keyText = document.getElementById("keyText");
 
+        const queryEmail = new URLSearchParams(window.location.search).get("email");
+        if (queryEmail) {
+          emailInput.value = queryEmail;
+          setTimeout(() => {
+            claimLicense();
+          }, 50);
+        }
+
         claimBtn.addEventListener("click", claimLicense);
         emailInput.addEventListener("keypress", (e) => {
           if (e.key === "Enter") claimLicense();
@@ -266,23 +274,7 @@
               return;
             }
 
-            // Generate new license
-            console.log("Generating new license...");
-            const { data: result, error: err } = await supabase.functions.invoke(
-              "generate-license",
-              {
-                body: { email, plan: "lifetime" },
-              }
-            );
-
-            console.log("Function result:", { result, err });
-
-            if (err || !result?.license_key) {
-              showError("Could not generate license. Please try again: " + (err?.message || "Unknown error"));
-              return;
-            }
-
-            showLicense(result.license_key);
+            showError("No paid license found for this email yet. Complete payment first, then try again.");
           } catch (err) {
             console.error("Error:", err);
             showError("An error occurred: " + err.message);
