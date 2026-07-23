@@ -35,10 +35,12 @@ jobs:
           GH_TOKEN: ""
       
       - name: Upload artifacts to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            dist-electron/*.exe
+        run: |
+          gh release create v1.0.2 --generate-notes \
+            dist-electron/*.exe \
+            dist-electron/*.appx || \
+          gh release upload v1.0.2 \
+            dist-electron/*.exe \
             dist-electron/*.appx
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
