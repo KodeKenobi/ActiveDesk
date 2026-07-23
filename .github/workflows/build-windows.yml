@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -35,12 +38,13 @@ jobs:
           GH_TOKEN: ""
       
       - name: Upload artifacts to release
+        shell: bash
         run: |
-          gh release create v1.0.2 --generate-notes \
-            dist-electron/*.exe \
-            dist-electron/*.appx || \
-          gh release upload v1.0.2 \
-            dist-electron/*.exe \
-            dist-electron/*.appx
+          FILES=$(find dist-electron -maxdepth 1 \( -name "*.exe" -o -name "*.appx" \) -type f)
+          if gh release view v1.0.2 >/dev/null 2>&1; then
+            gh release upload v1.0.2 $FILES
+          else
+            gh release create v1.0.2 --generate-notes $FILES
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
