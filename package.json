@@ -40,8 +40,8 @@
     },
     "appx": {
       "identityName": "KodeKenobi.ActiveDesk",
-      "publisher": "CN=Ignatius Mutizwa",
-      "publisherDisplayName": "Ignatius Mutizwa"
+      "publisher": "CN=Kode Kenobi",
+      "publisherDisplayName": "Kode Kenobi"
     },
     "mac": {
       "target": [
