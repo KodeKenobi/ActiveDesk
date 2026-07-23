@@ -1,0 +1,38 @@
+name: Build Windows Installers
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Build NSIS installer
+        run: npm run build:win
+      
+      - name: Build APPX installer
+        run: npm run build:win:appx
+      
+      - name: Upload artifacts to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist-electron/**/*.{exe,appx}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
