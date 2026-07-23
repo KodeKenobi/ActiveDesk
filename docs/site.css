@@ -327,7 +327,7 @@ a {
 
 .price-card {
   padding: var(--content-inset);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: rgba(255, 251, 245, 0.88);
   transition:
     transform 0.22s ease,
