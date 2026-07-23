@@ -46,13 +46,15 @@ jobs:
       - name: Upload artifacts to release
         shell: bash
         run: |
+          TAG="${{ github.ref_name }}"
+          
           # Create release if it doesn't exist
-          if ! gh release view v1.0.2 >/dev/null 2>&1; then
-            gh release create v1.0.2 --generate-notes
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --generate-notes
           fi
           
           # Upload all exe and appx files
           find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" \) -print0 | \
-            xargs -0 gh release upload v1.0.2 --clobber
+            xargs -0 gh release upload "$TAG" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
