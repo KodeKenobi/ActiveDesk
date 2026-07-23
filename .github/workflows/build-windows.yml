@@ -41,31 +41,18 @@ jobs:
         shell: bash
         run: |
           echo "Checking dist-electron directory:"
-          ls -la dist-electron/ || echo "dist-electron not found"
-          find dist-electron -type f \( -name "*.exe" -o -name "*.appx" -o -name "*.dmg" \) 2>/dev/null || echo "No matching files found"
+          find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" \) -print0 | xargs -0 ls -lh
       
       - name: Upload artifacts to release
         shell: bash
         run: |
-          FILES=()
-          if [ -d "dist-electron" ]; then
-            FILES+=($(find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" \) 2>/dev/null))
+          # Create release if it doesn't exist
+          if ! gh release view v1.0.2 >/dev/null 2>&1; then
+            gh release create v1.0.2 --generate-notes
           fi
           
-          if [ ${#FILES[@]} -eq 0 ]; then
-            echo "No artifacts found to upload"
-            exit 1
-          fi
-          
-          echo "Found ${#FILES[@]} artifacts to upload"
-          for file in "${FILES[@]}"; do
-            echo "  - $file"
-          done
-          
-          if gh release view v1.0.2 >/dev/null 2>&1; then
-            gh release upload v1.0.2 "${FILES[@]}"
-          else
-            gh release create v1.0.2 --generate-notes "${FILES[@]}"
-          fi
+          # Upload all exe and appx files
+          find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" \) -print0 | \
+            xargs -0 gh release upload v1.0.2 --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
