@@ -193,6 +193,46 @@ body.is-running .brand-mark {
   font-size: 0.78rem;
 }
 
+.app-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  max-width: 360px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.28);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #fff;
+  background: rgba(19, 19, 22, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 999;
+}
+
+.app-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.app-toast.success {
+  background: rgba(6, 95, 70, 0.96);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.app-toast.error {
+  background: rgba(127, 29, 29, 0.96);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.app-toast.info {
+  background: rgba(30, 41, 59, 0.96);
+  border-color: rgba(96, 165, 250, 0.3);
+}
+
 .panel {
   background: rgba(19, 19, 22, 0.35);
   backdrop-filter: blur(12px);

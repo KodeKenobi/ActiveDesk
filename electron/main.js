@@ -44,30 +44,30 @@ function readLicensePublicKey() {
 }
 
 function readStoredLicenseKey() {
-  try {
-    const raw = fs.readFileSync(getLicenseStatePath(), "utf8");
-    return JSON.parse(raw)?.licenseKey || "";
-  } catch {
-    return "";
-  }
+  return readLicenseState()?.licenseKey || "";
 }
 
-function writeStoredLicenseKey(licenseKey) {
-  const statePath = getLicenseStatePath();
-  fs.mkdirSync(path.dirname(statePath), { recursive: true });
-  fs.writeFileSync(
-    statePath,
-    JSON.stringify({ licenseKey, updatedAt: Date.now() }, null, 2),
-    "utf8"
-  );
+function writeStoredLicenseKey(licenseKey, cachedLicensePayload = null) {
+  const state = readLicenseState();
+  state.licenseKey = licenseKey;
+  state.updatedAt = Date.now();
+  if (cachedLicensePayload) {
+    state.cachedLicensePayload = {
+      ...cachedLicensePayload,
+      licenseKey,
+    };
+  } else {
+    delete state.cachedLicensePayload;
+  }
+  writeLicenseState(state);
 }
 
 function clearStoredLicenseKey() {
-  try {
-    fs.unlinkSync(getLicenseStatePath());
-  } catch {
-    /* ignore */
-  }
+  const state = readLicenseState();
+  delete state.licenseKey;
+  delete state.updatedAt;
+  delete state.cachedLicensePayload;
+  writeLicenseState(state);
 }
 
 function serializeLicenseStatus(result) {
@@ -138,7 +138,7 @@ function initializeTrial() {
   }
 }
 
-function getLicenseStatus() {
+async function getLicenseStatus() {
   const publicKeyPem = readLicensePublicKey();
   if (!publicKeyPem) {
     return {
@@ -198,21 +198,25 @@ function getLicenseStatus() {
     }
   }
 
-  return serializeLicenseStatus(verifyLicenseKey(storedKey, publicKeyPem));
+  const state = readLicenseState();
+  return serializeLicenseStatus(
+    await verifyLicenseKey(storedKey, publicKeyPem, Date.now(), state.cachedLicensePayload || null)
+  );
 }
 
-function activateLicenseKey(licenseKey) {
+async function activateLicenseKey(licenseKey) {
   const publicKeyPem = readLicensePublicKey();
   if (!publicKeyPem) {
     return getLicenseStatus();
   }
 
-  const result = verifyLicenseKey(licenseKey, publicKeyPem);
+  const trimmedKey = String(licenseKey || "").trim();
+  const result = await verifyLicenseKey(trimmedKey, publicKeyPem);
   if (!result.valid) {
     return serializeLicenseStatus(result);
   }
 
-  writeStoredLicenseKey(String(licenseKey).trim());
+  writeStoredLicenseKey(trimmedKey, result.payload);
   return getLicenseStatus();
 }
 
@@ -445,8 +449,8 @@ ipcMain.handle("activedesk:getApps", async () => {
   return { apps };
 });
 
-ipcMain.handle("activedesk:start", (_event, { intervalSeconds, includeShift }) => {
-  const licenseStatus = getLicenseStatus();
+ipcMain.handle("activedesk:start", async (_event, { intervalSeconds, includeShift }) => {
+  const licenseStatus = await getLicenseStatus();
   if (!licenseStatus.valid) {
     throw new Error(licenseStatus.message || "Activate a valid license before starting ActiveDesk.");
   }
@@ -500,15 +504,15 @@ ipcMain.handle("activedesk:openExternal", async (_event, url) => {
   }
 });
 
-ipcMain.handle("activedesk:getLicenseStatus", () => {
+ipcMain.handle("activedesk:getLicenseStatus", async () => {
   return getLicenseStatus();
 });
 
-ipcMain.handle("activedesk:activateLicense", (_event, licenseKey) => {
+ipcMain.handle("activedesk:activateLicense", async (_event, licenseKey) => {
   return activateLicenseKey(licenseKey);
 });
 
-ipcMain.handle("activedesk:clearLicense", () => {
+ipcMain.handle("activedesk:clearLicense", async () => {
   clearStoredLicenseKey();
   return getLicenseStatus();
 });

@@ -148,6 +148,7 @@ const activateLicenseBtn = document.getElementById("activateLicenseBtn");
 const clearLicenseBtn = document.getElementById("clearLicenseBtn");
 const purchaseButtons = document.querySelectorAll(".purchase-btn");
 const presetButtons = document.querySelectorAll(".preset");
+const appToastEl = document.getElementById("appToast");
 
 let isRunning = false;
 let appsPoll = null;
@@ -160,6 +161,17 @@ let tickCount = 0;
 let licenseStatus = null;
 
 let scanErrorClearId = null;
+let toastTimer = null;
+
+function showToast(message, type = "info") {
+  if (!appToastEl || !message) return;
+  if (toastTimer) clearTimeout(toastTimer);
+  appToastEl.textContent = message;
+  appToastEl.className = `app-toast ${type} show`;
+  toastTimer = setTimeout(() => {
+    appToastEl.className = `app-toast ${type}`;
+  }, 2600);
+}
 
 function showScanError(message) {
   if (scanErrorClearId) clearTimeout(scanErrorClearId);
@@ -391,12 +403,14 @@ async function refreshApps(options = {}) {
     if (manual) {
       const prev = refreshAppsBtn.textContent;
       refreshAppsBtn.textContent = "List updated";
+      showToast("App list refreshed.", "success");
       setTimeout(() => {
         refreshAppsBtn.textContent = prev;
       }, 1400);
     }
   } catch {
     showScanError("Could not refresh app list.");
+    if (manual) showToast("Could not refresh the app list right now.", "error");
   } finally {
     if (manual) {
       refreshAppsBtn.disabled = false;
@@ -408,6 +422,13 @@ async function start() {
   const intervalSeconds = Number(intervalEl.value);
   if (!Number.isFinite(intervalSeconds) || intervalSeconds < 5) {
     detailEl.textContent = "Use at least 5 seconds.";
+    showToast("Use an interval of at least 5 seconds.", "error");
+    return;
+  }
+
+  if (!window.activeDesk?.start) {
+    detailEl.textContent = "ActiveDesk runtime is unavailable.";
+    showToast("The desktop runtime is unavailable. Restart the app and try again.", "error");
     return;
   }
 
@@ -422,8 +443,13 @@ async function start() {
 }
 
 async function stop() {
+  if (!window.activeDesk?.stop) {
+    showToast("Could not stop ActiveDesk because the desktop runtime is unavailable.", "error");
+    return;
+  }
   await window.activeDesk.stop();
   setUiState(false);
+  showToast("ActiveDesk stopped.", "info");
 }
 
 async function toggleRun() {
@@ -436,6 +462,7 @@ async function toggleRun() {
     else await start();
   } catch (err) {
     detailEl.textContent = err.message || "Action failed.";
+    showToast(err.message || "The requested action failed.", "error");
   }
 }
 
@@ -453,18 +480,26 @@ presetButtons.forEach((btn) => {
 intervalEl.addEventListener("input", updatePresetSelection);
 
 alwaysOnTopEl.addEventListener("change", async () => {
+  const requested = alwaysOnTopEl.checked;
   try {
-    await window.activeDesk.setAlwaysOnTop(alwaysOnTopEl.checked);
+    const result = await window.activeDesk.setAlwaysOnTop(requested);
+    if (!result?.ok) throw new Error();
+    showToast(requested ? "Window will stay on top." : "Always-on-top disabled.", "success");
   } catch {
-    /* ignore */
+    alwaysOnTopEl.checked = !requested;
+    showToast("Could not change the always-on-top setting.", "error");
   }
 });
 
 launchAtLoginEl.addEventListener("change", async () => {
+  const requested = launchAtLoginEl.checked;
   try {
-    await window.activeDesk.setLaunchAtLogin(launchAtLoginEl.checked);
+    const result = await window.activeDesk.setLaunchAtLogin(requested);
+    if (!result?.ok) throw new Error();
+    showToast(requested ? "ActiveDesk will open at sign in." : "Launch at sign in disabled.", "success");
   } catch {
-    /* ignore */
+    launchAtLoginEl.checked = !requested;
+    showToast("Could not change the launch-at-login setting.", "error");
   }
 });
 
@@ -479,6 +514,7 @@ window.activeDesk.onTick(() => {
 
 window.activeDesk.onError((payload) => {
   detailEl.textContent = payload?.message || "Simulation error.";
+  showToast(payload?.message || "Simulation error.", "error");
 });
 
 window.activeDesk.onHotkeyToggle(() => {
@@ -557,12 +593,20 @@ async function getUSDToZARRate() {
 
 async function openPurchase(planId, btn) {
   const plan = PURCHASE_PLANS[planId];
-  if (!plan || !btn || !window.activeDesk?.openExternal) return;
+  if (!plan || !btn) {
+    showToast("That purchase option is not available right now.", "error");
+    return;
+  }
+  if (!window.activeDesk?.openExternal) {
+    showToast("Could not open the payment page from this app instance.", "error");
+    return;
+  }
 
   const originalText = btn.textContent;
   btn.textContent = "Processing...";
   btn.disabled = true;
   try {
+    const mode = PAYFAST_CONFIG.mode === "sandbox" ? "sandbox" : "live";
     const rate = await getUSDToZARRate();
     const zarAmount = plan.usdAmount * rate;
     const returnUrl = `${PAYFAST_CONFIG.returnUrl}?${new URLSearchParams({
@@ -578,14 +622,18 @@ async function openPurchase(planId, btn) {
       item_name: plan.itemName,
       custom_str2: planId,
     });
-    const mode = PAYFAST_CONFIG.mode === "sandbox" ? "sandbox" : "live";
     const processUrl = PAYFAST_PROCESS_URLS[mode];
     const payUrl = `${processUrl}?${params.toString()}`;
-    await window.activeDesk.openExternal(payUrl);
+    const result = await window.activeDesk.openExternal(payUrl);
+    if (!result?.ok) {
+      throw new Error("Could not open payment page.");
+    }
     detailEl.textContent = "Payment page opened. After paying, claim your key on the license dashboard.";
+    showToast(`Opening ${plan.label} checkout in your browser.`, "success");
   } catch (e) {
     console.error("PayFast open failed:", e);
     detailEl.textContent = "Could not open payment page. Please try again.";
+    showToast("Could not open the payment page. Please try again.", "error");
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
@@ -596,15 +644,65 @@ if (activateLicenseBtn) {
   activateLicenseBtn.addEventListener("click", async () => {
     if (!window.activeDesk?.activateLicense) return;
     const key = licenseKeyEl.value.trim();
-    renderLicenseStatus(await window.activeDesk.activateLicense(key));
+    if (!key) {
+      renderLicenseStatus({
+        state: "invalid",
+        valid: false,
+        message: "Paste a license key first, or recover it from the dashboard using your purchase email.",
+        planId: null,
+        planLabel: null,
+        email: "",
+        expiresAt: null,
+        issuedAt: null,
+      });
+      showToast("Paste a license key first, or recover it from the dashboard.", "error");
+      return;
+    }
+
+    try {
+      activateLicenseBtn.disabled = true;
+      const status = await window.activeDesk.activateLicense(key);
+      renderLicenseStatus(status);
+      if (status?.valid) {
+        detailEl.textContent = "License activated. If you switch machines later, recover this key from the license dashboard using your purchase email.";
+        showToast("License activated successfully.", "success");
+      } else {
+        showToast(status?.message || "Could not activate this license key.", "error");
+      }
+    } catch {
+      renderLicenseStatus({
+        state: "invalid",
+        valid: false,
+        message: "Could not activate this license key right now.",
+        planId: null,
+        planLabel: null,
+        email: "",
+        expiresAt: null,
+        issuedAt: null,
+      });
+      showToast("Could not activate this license key right now.", "error");
+    } finally {
+      activateLicenseBtn.disabled = false;
+    }
   });
 }
 
 if (clearLicenseBtn) {
   clearLicenseBtn.addEventListener("click", async () => {
     if (!window.activeDesk?.clearLicense) return;
-    licenseKeyEl.value = "";
-    renderLicenseStatus(await window.activeDesk.clearLicense());
+    try {
+      clearLicenseBtn.disabled = true;
+      licenseKeyEl.value = "";
+      const status = await window.activeDesk.clearLicense();
+      renderLicenseStatus(status);
+      licenseDetailEl.textContent = "License removed from this device only. You can reactivate anytime with your existing key or recover it from the dashboard using your purchase email.";
+      detailEl.textContent = "License removed from this device only. Recover it anytime from the dashboard if you need it again.";
+      showToast("License removed from this device only.", "info");
+    } catch {
+      showToast("Could not remove the license from this device right now.", "error");
+    } finally {
+      clearLicenseBtn.disabled = false;
+    }
   });
 }
 
@@ -627,9 +725,13 @@ if (licenseKeyEl) {
     launchAtLoginEl.checked = Boolean(openAtLogin);
   } catch {
     launchAtLoginEl.checked = false;
+    showToast("Could not read the launch-at-login setting.", "error");
   }
   updatePresetSelection();
   await loadLicenseStatus();
+  if (!window.activeDesk?.getApps) {
+    showToast("Desktop runtime is missing app detection support.", "error");
+  }
 })();
 
 setUiState(false);

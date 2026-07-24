@@ -1,5 +1,8 @@
 const crypto = require("crypto");
 
+const SUPABASE_URL = "https://nibzfmjwisfdmwublvyu.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_Cq5ljxAxHRZOJU4wiGc07g_6vrFU0lA";
+
 const PLAN_DEFS = {
   lifetime: { id: "lifetime", label: "Lifetime", durationDays: null },
   weekly: { id: "weekly", label: "1 Week", durationDays: 7 },
@@ -88,25 +91,88 @@ function decodeLicenseKey(licenseKey) {
   return { payload, payloadRaw, signature, isUUID: false };
 }
 
-function verifyLicenseKey(licenseKey, publicKeyPem, now = Date.now()) {
+async function fetchHostedLicensePayload(licenseKey, now = Date.now()) {
+  const params = new URLSearchParams({
+    select: "plan,email,issued_at,expires_at",
+    license_key: `eq.${licenseKey}`,
+    order: "issued_at.desc",
+    limit: "1",
+  });
+
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/licenses?${params.toString()}`, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not verify license right now.");
+  }
+
+  const rows = await response.json();
+  const record = Array.isArray(rows) ? rows[0] : null;
+  if (!record) {
+    return null;
+  }
+
+  const issuedAt = record.issued_at ? Date.parse(record.issued_at) : now;
+  const expiresAt = record.expires_at ? Date.parse(record.expires_at) : null;
+
+  return {
+    product: "ActiveDesk",
+    plan: record.plan,
+    email: String(record.email || "").trim().toLowerCase(),
+    issuedAt: Number.isFinite(issuedAt) ? issuedAt : now,
+    expiresAt: Number.isFinite(expiresAt) ? expiresAt : null,
+  };
+}
+
+async function verifyLicenseKey(licenseKey, publicKeyPem, now = Date.now(), cachedPayload = null) {
   try {
     const decoded = decodeLicenseKey(licenseKey);
-    const { payload, payloadRaw, signature, isUUID } = decoded;
-    const planDef = getPlan(payload?.plan);
-
-    if (!planDef) {
-      return { valid: false, status: "invalid", message: "Unknown license plan." };
-    }
+    let { payload, payloadRaw, signature, isUUID } = decoded;
 
     // UUID format: accept without signature verification
     if (isUUID) {
+      if (!cachedPayload || cachedPayload.licenseKey !== String(licenseKey || "").trim()) {
+        payload = await fetchHostedLicensePayload(String(licenseKey || "").trim(), now);
+      } else {
+        payload = cachedPayload;
+      }
+
+      if (!payload) {
+        return { valid: false, status: "invalid", message: "License key was not found." };
+      }
+
+      const uuidPlan = getPlan(payload?.plan);
+      if (!uuidPlan) {
+        return { valid: false, status: "invalid", message: "Unknown license plan." };
+      }
+
+      if (payload.expiresAt && Number(payload.expiresAt) < now) {
+        return {
+          valid: false,
+          status: "expired",
+          message: "License has expired.",
+          payload,
+          plan: uuidPlan,
+        };
+      }
+
       return {
         valid: true,
         status: "active",
         message: "License is active.",
         payload,
-        plan: planDef,
+        plan: uuidPlan,
       };
+    }
+
+    const planDef = getPlan(payload?.plan);
+
+    if (!planDef) {
+      return { valid: false, status: "invalid", message: "Unknown license plan." };
     }
 
     // RSA-signed format: verify signature
