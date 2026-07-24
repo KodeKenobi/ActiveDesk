@@ -155,10 +155,8 @@ async function getLicenseStatus() {
 
   const storedKey = readStoredLicenseKey();
   if (!storedKey) {
-    // No key: check trial status
     const trial = getTrialStatus();
     if (!trial) {
-      // First run: initialize trial
       initializeTrial();
       return {
         state: "trial",
@@ -184,18 +182,18 @@ async function getLicenseStatus() {
         expiresAt: Date.now() + trial.hoursRemaining * 60 * 60 * 1000,
         issuedAt: Date.now(),
       };
-    } else {
-      return {
-        state: "trial_expired",
-        valid: false,
-        message: "Trial expired. Purchase a license to continue using ActiveDesk.",
-        planId: null,
-        planLabel: null,
-        email: "",
-        expiresAt: null,
-        issuedAt: null,
-      };
     }
+
+    return {
+      state: "trial_expired",
+      valid: false,
+      message: "Trial expired. Purchase a license to continue using ActiveDesk.",
+      planId: null,
+      planLabel: null,
+      email: "",
+      expiresAt: null,
+      issuedAt: null,
+    };
   }
 
   const state = readLicenseState();
@@ -243,7 +241,7 @@ function createWindow() {
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("https:") || url.startsWith("http:")) {
-      shell.openExternal(url);
+      void openExternalUrl(url);
       return { action: "deny" };
     }
     return { action: "allow" };
@@ -299,6 +297,44 @@ function runOsascript(args) {
       else reject(new Error(stderr || `osascript exited with code ${code}`));
     });
   });
+}
+
+function openExternalWithSystem(url) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("open", [url]);
+
+    let stderr = "";
+    proc.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    proc.on("error", reject);
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(stderr || `open exited with code ${code}`));
+      }
+    });
+  });
+}
+
+async function openExternalUrl(url) {
+  try {
+    await shell.openExternal(url);
+    return { ok: true };
+  } catch (error) {
+    if (IS_MAC) {
+      try {
+        await openExternalWithSystem(url);
+        return { ok: true };
+      } catch (fallbackError) {
+        return { ok: false, error: fallbackError?.message || error?.message || "Could not open external URL." };
+      }
+    }
+
+    return { ok: false, error: error?.message || "Could not open external URL." };
+  }
 }
 
 function createUnsupportedPlatformError() {
@@ -494,14 +530,9 @@ ipcMain.handle("activedesk:setLaunchAtLogin", (_event, openAtLogin) => {
 
 ipcMain.handle("activedesk:openExternal", async (_event, url) => {
   if (typeof url !== "string" || !/^https:\/\//.test(url)) {
-    return { ok: false };
+    return { ok: false, error: "Only secure payment links can be opened." };
   }
-  try {
-    await shell.openExternal(url);
-    return { ok: true };
-  } catch {
-    return { ok: false };
-  }
+  return openExternalUrl(url);
 });
 
 ipcMain.handle("activedesk:getLicenseStatus", async () => {

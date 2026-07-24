@@ -591,6 +591,11 @@ async function getUSDToZARRate() {
   return 18.5;
 }
 
+function createPaymentReference(planId) {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `AD-${planId}-${Date.now()}-${suffix}`;
+}
+
 async function openPurchase(planId, btn) {
   const plan = PURCHASE_PLANS[planId];
   if (!plan || !btn) {
@@ -609,12 +614,14 @@ async function openPurchase(planId, btn) {
     const mode = PAYFAST_CONFIG.mode === "sandbox" ? "sandbox" : "live";
     const rate = await getUSDToZARRate();
     const zarAmount = plan.usdAmount * rate;
+    const paymentRef = createPaymentReference(planId);
     const returnUrl = `${PAYFAST_CONFIG.returnUrl}?${new URLSearchParams({
       plan: planId,
     }).toString()}`;
     const params = new URLSearchParams({
       cmd: "_paynow",
       receiver: PAYFAST_CONFIG.receiverByMode?.[mode] || PAYFAST_CONFIG.receiverByMode.live,
+      m_payment_id: paymentRef,
       return_url: returnUrl,
       cancel_url: PAYFAST_CONFIG.cancelUrl,
       notify_url: PAYFAST_CONFIG.notifyUrl,
@@ -626,7 +633,7 @@ async function openPurchase(planId, btn) {
     const payUrl = `${processUrl}?${params.toString()}`;
     const result = await window.activeDesk.openExternal(payUrl);
     if (!result?.ok) {
-      throw new Error("Could not open payment page.");
+      throw new Error(result?.error || "Could not open payment page.");
     }
     detailEl.textContent = "Payment page opened. After paying, claim your key on the license dashboard.";
     showToast(`Opening ${plan.label} checkout in your browser.`, "success");

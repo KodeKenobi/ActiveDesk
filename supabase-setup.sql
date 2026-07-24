@@ -5,10 +5,10 @@ CREATE TABLE payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT NOT NULL,
   reference TEXT UNIQUE NOT NULL,
-  plan TEXT NOT NULL, -- 'lifetime', 'weekly', 'monthly'
+  plan TEXT NOT NULL CHECK (plan IN ('lifetime', 'weekly', 'monthly')),
   amount_usd DECIMAL(10, 2) NOT NULL,
   amount_zar DECIMAL(10, 2),
-  status TEXT DEFAULT 'pending', -- 'pending', 'completed', 'failed'
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed')),
   payfast_response JSONB,
   created_at TIMESTAMP DEFAULT now(),
   updated_at TIMESTAMP DEFAULT now()
@@ -20,7 +20,7 @@ CREATE TABLE licenses (
   payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   license_key TEXT UNIQUE NOT NULL,
-  plan TEXT NOT NULL,
+  plan TEXT NOT NULL CHECK (plan IN ('lifetime', 'weekly', 'monthly')),
   issued_at TIMESTAMP DEFAULT now(),
   expires_at TIMESTAMP,
   is_active BOOLEAN DEFAULT true,

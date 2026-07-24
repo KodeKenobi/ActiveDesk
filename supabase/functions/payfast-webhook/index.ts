@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
-import * as crypto from "crypto";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import * as crypto from "node:crypto";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -28,6 +28,8 @@ interface PayFastIPN {
   source: string;
   signature: string;
 }
+
+const VALID_PLANS = new Set(["weekly", "monthly", "lifetime"]);
 
 async function generateLicenseKey(plan: string, email: string): Promise<string> {
   // Create a payload with plan, email, and timestamp
@@ -94,9 +96,19 @@ Deno.serve(async (req) => {
       return new Response("Payment not complete", { status: 200 });
     }
 
-    const email = ipn.custom_str1 || ipn.email_address;
-    const plan = ipn.custom_str2 || "monthly";
+    const email = (ipn.custom_str1 || ipn.email_address || "").trim().toLowerCase();
+    const plan = (ipn.custom_str2 || "").trim().toLowerCase();
     const reference = ipn.m_payment_id;
+
+    if (!email || !reference) {
+      console.error("Missing required PayFast fields", { email, reference });
+      return new Response("Missing required payment fields", { status: 400 });
+    }
+
+    if (!VALID_PLANS.has(plan)) {
+      console.error("Invalid plan received from PayFast", { plan, reference, email });
+      return new Response("Invalid plan in payment payload", { status: 400 });
+    }
 
     // Check if payment already processed
     const { data: existing } = await supabase

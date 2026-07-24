@@ -129,6 +129,11 @@ function setPayStatus(message) {
   }
 }
 
+function createPaymentReference(planId) {
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return `AD-${planId}-${Date.now()}-${suffix}`;
+}
+
 async function openCheckout(planId, button) {
   const plan = SITE_CONFIG.plans[planId];
   if (!plan) return;
@@ -150,9 +155,11 @@ async function openCheckout(planId, button) {
 
     const mode = SITE_CONFIG.payfastMode === "sandbox" ? "sandbox" : "live";
     const receiver = SITE_CONFIG.payfast.receiverByMode?.[mode] || SITE_CONFIG.payfast.receiverByMode.live;
+    const paymentRef = createPaymentReference(planId);
     const params = new URLSearchParams({
       cmd: "_paynow",
       receiver,
+      m_payment_id: paymentRef,
       return_url: fullReturnUrl,
       cancel_url: SITE_CONFIG.payfast.cancelUrl,
       notify_url: SITE_CONFIG.payfast.notifyUrl,
