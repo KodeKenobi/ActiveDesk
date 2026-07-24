@@ -527,8 +527,8 @@ const PAYFAST_CONFIG = {
     live: "23594634",
     sandbox: "10043520",
   },
-  returnUrl: "https://kodekenobi.github.io/activedesk/dashboard.html",
-  cancelUrl: "https://kodekenobi.github.io/activedesk/",
+  returnUrl: "https://kodekenobi.github.io/ActiveDesk/dashboard.html",
+  cancelUrl: "https://kodekenobi.github.io/ActiveDesk/",
   notifyUrl: "https://nibzfmjwisfdmwublvyu.supabase.co/functions/v1/payfast-webhook",
 };
 
