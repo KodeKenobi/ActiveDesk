@@ -111,6 +111,8 @@ function writeLicenseState(state) {
   fs.writeFileSync(statePath, JSON.stringify(state, null, 2), "utf8");
 }
 
+const TRIAL_DURATION_HOURS = 7 * 24;
+
 function getTrialStatus() {
   const state = readLicenseState();
   if (!state.trialStartedAt) {
@@ -120,7 +122,7 @@ function getTrialStatus() {
   const startTime = Number(state.trialStartedAt);
   const now = Date.now();
   const hoursElapsed = (now - startTime) / (1000 * 60 * 60);
-  const hoursRemaining = Math.max(0, 168 - hoursElapsed);
+  const hoursRemaining = Math.max(0, TRIAL_DURATION_HOURS - hoursElapsed);
 
   return {
     isActive: hoursRemaining > 0,
@@ -161,11 +163,11 @@ function getLicenseStatus() {
       return {
         state: "trial",
         valid: true,
-        message: "Trial active for 24 hours. Get a license to continue after trial expires.",
+        message: "Trial active for 7 days. Get a license to continue after trial expires.",
         planId: null,
         planLabel: "Trial",
         email: "",
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        expiresAt: Date.now() + TRIAL_DURATION_HOURS * 60 * 60 * 1000,
         issuedAt: Date.now(),
       };
     }

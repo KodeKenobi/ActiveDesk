@@ -1,9 +1,10 @@
-name: Build Windows Installers
+name: Build Release Installers
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -16,16 +17,16 @@ jobs:
         node-version: [18.x]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       
       - name: Build NSIS installer
         run: npm run build:win -- --publish=never
@@ -41,9 +42,19 @@ jobs:
         shell: bash
         run: |
           echo "Checking dist-electron directory:"
-          find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" \) -print0 | xargs -0 ls -lh
+          find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" -o -name "latest*.yml" \) -print0 | xargs -0 ls -lh
+
+      - name: Upload Windows workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: activedesk-windows-${{ github.ref_name }}
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.appx
+            dist-electron/latest*.yml
+          if-no-files-found: error
       
-      - name: Upload artifacts to release
+      - name: Upload Windows assets to release
         shell: bash
         run: |
           TAG="${{ github.ref_name }}"
@@ -53,8 +64,60 @@ jobs:
             gh release create "$TAG" --generate-notes
           fi
           
-          # Upload all exe and appx files
-          find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" \) -print0 | \
+          # Upload all Windows installers and update metadata
+          find dist-electron -maxdepth 1 -type f \( -name "*.exe" -o -name "*.appx" -o -name "latest*.yml" \) -print0 | \
+            xargs -0 gh release upload "$TAG" --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS installers
+        run: npm run build:mac -- --publish=never
+        env:
+          GH_TOKEN: ""
+
+      - name: List build artifacts
+        run: |
+          echo "Checking dist-electron directory:"
+          find dist-electron -maxdepth 1 -type f \( -name "*.dmg" -o -name "*.zip" -o -name "latest-mac.yml" \) -print0 | xargs -0 ls -lh
+
+      - name: Upload macOS workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: activedesk-macos-${{ github.ref_name }}
+          path: |
+            dist-electron/*.dmg
+            dist-electron/*-mac.zip
+            dist-electron/latest-mac.yml
+          if-no-files-found: error
+
+      - name: Upload macOS assets to release
+        shell: bash
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --generate-notes
+          fi
+
+          find dist-electron -maxdepth 1 -type f \( -name "*.dmg" -o -name "*-mac.zip" -o -name "latest-mac.yml" \) -print0 | \
             xargs -0 gh release upload "$TAG" --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
