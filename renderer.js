@@ -537,6 +537,8 @@ const PAYFAST_PROCESS_URLS = {
   sandbox: "https://sandbox.payfast.co.za/eng/process",
 };
 
+const CHECKOUT_EMAIL_CACHE_KEY = "activedesk_checkout_email";
+
 const PURCHASE_PLANS = {
   lifetime: { label: "Lifetime", usdAmount: 10, itemName: "ActiveDesk Lifetime License" },
   weekly: { label: "1 Week", usdAmount: 2, itemName: "ActiveDesk Weekly License" },
@@ -596,6 +598,22 @@ function createPaymentReference(planId) {
   return `AD-${planId}-${Date.now()}-${suffix}`;
 }
 
+function isValidEmailAddress(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value || "");
+}
+
+function getCheckoutEmail(suggestedEmail = "") {
+  const cached = (localStorage.getItem(CHECKOUT_EMAIL_CACHE_KEY) || "").trim().toLowerCase();
+  const fallback = (suggestedEmail || cached).trim().toLowerCase();
+  const promptValue = typeof window.prompt === "function"
+    ? window.prompt("Enter the email used for this purchase (needed to recover your license):", fallback)
+    : fallback;
+  const email = (promptValue || "").trim().toLowerCase();
+  if (!isValidEmailAddress(email)) return null;
+  localStorage.setItem(CHECKOUT_EMAIL_CACHE_KEY, email);
+  return email;
+}
+
 async function openPurchase(planId, btn) {
   const plan = PURCHASE_PLANS[planId];
   if (!plan || !btn) {
@@ -614,9 +632,14 @@ async function openPurchase(planId, btn) {
     const mode = PAYFAST_CONFIG.mode === "sandbox" ? "sandbox" : "live";
     const rate = await getUSDToZARRate();
     const zarAmount = plan.usdAmount * rate;
+    const checkoutEmail = getCheckoutEmail(licenseStatus?.email || "");
+    if (!checkoutEmail) {
+      throw new Error("Please enter a valid purchase email.");
+    }
     const paymentRef = createPaymentReference(planId);
     const returnUrl = `${PAYFAST_CONFIG.returnUrl}?${new URLSearchParams({
       plan: planId,
+      email: checkoutEmail,
     }).toString()}`;
     const params = new URLSearchParams({
       cmd: "_paynow",
@@ -627,6 +650,7 @@ async function openPurchase(planId, btn) {
       notify_url: PAYFAST_CONFIG.notifyUrl,
       amount: zarAmount.toFixed(2),
       item_name: plan.itemName,
+      custom_str1: checkoutEmail,
       custom_str2: planId,
     });
     const processUrl = PAYFAST_PROCESS_URLS[mode];

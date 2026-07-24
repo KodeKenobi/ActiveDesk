@@ -35,6 +35,8 @@ const PAYFAST_PROCESS_URLS = {
   sandbox: "https://sandbox.payfast.co.za/eng/process",
 };
 
+const CHECKOUT_EMAIL_CACHE_KEY = "activedesk_site_checkout_email";
+
 const EXCHANGE_RATE_CACHE_KEY = "activedesk_site_usd_to_zar_rate";
 const EXCHANGE_RATE_CACHE_DURATION = 60 * 60 * 1000;
 const EXCHANGE_RATE_APIS = [
@@ -129,6 +131,21 @@ function setPayStatus(message) {
   }
 }
 
+function isValidEmailAddress(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value || "");
+}
+
+function getCheckoutEmail() {
+  const cached = (localStorage.getItem(CHECKOUT_EMAIL_CACHE_KEY) || "").trim().toLowerCase();
+  const promptValue = typeof window.prompt === "function"
+    ? window.prompt("Enter the email used for this purchase (needed to recover your license):", cached)
+    : cached;
+  const email = (promptValue || "").trim().toLowerCase();
+  if (!isValidEmailAddress(email)) return null;
+  localStorage.setItem(CHECKOUT_EMAIL_CACHE_KEY, email);
+  return email;
+}
+
 function createPaymentReference(planId) {
   const suffix = Math.random().toString(36).slice(2, 8);
   return `AD-${planId}-${Date.now()}-${suffix}`;
@@ -146,9 +163,15 @@ async function openCheckout(planId, button) {
   try {
     const rate = await getUsdToZarRate();
     const zarAmount = plan.usdAmount * rate;
+    const checkoutEmail = getCheckoutEmail();
+    if (!checkoutEmail) {
+      setPayStatus("Please enter a valid purchase email before checkout.");
+      return;
+    }
 
     const returnParams = new URLSearchParams({
       plan: planId,
+      email: checkoutEmail,
     });
 
     const fullReturnUrl = `${SITE_CONFIG.payfast.returnUrl}?${returnParams.toString()}`;
@@ -165,6 +188,7 @@ async function openCheckout(planId, button) {
       notify_url: SITE_CONFIG.payfast.notifyUrl,
       amount: zarAmount.toFixed(2),
       item_name: plan.itemName,
+      custom_str1: checkoutEmail,
       custom_str2: planId,
     });
 
