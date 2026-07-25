@@ -566,6 +566,26 @@ body.is-running .control-panel {
   gap: 8px;
 }
 
+.checkout-email-row {
+  margin-bottom: 10px;
+}
+
+.checkout-email-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+
+.checkout-email-help {
+  margin: 6px 0 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .purchase-btn {
   padding: 10px 12px;
   font-family: var(--font);

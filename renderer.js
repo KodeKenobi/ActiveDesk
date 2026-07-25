@@ -144,6 +144,7 @@ const licenseDetailEl = document.getElementById("licenseDetail");
 const licensePlanEl = document.getElementById("licensePlan");
 const licenseExpiryEl = document.getElementById("licenseExpiry");
 const licenseKeyEl = document.getElementById("licenseKey");
+let checkoutEmailEl = document.getElementById("checkoutEmail");
 const activateLicenseBtn = document.getElementById("activateLicenseBtn");
 const clearLicenseBtn = document.getElementById("clearLicenseBtn");
 const purchaseButtons = document.querySelectorAll(".purchase-btn");
@@ -162,6 +163,35 @@ let licenseStatus = null;
 
 let scanErrorClearId = null;
 let toastTimer = null;
+
+function ensureCheckoutEmailInput() {
+  if (checkoutEmailEl) return checkoutEmailEl;
+  const purchaseGridEl = document.querySelector(".purchase-grid");
+  if (!purchaseGridEl || !purchaseGridEl.parentElement) return null;
+
+  const row = document.createElement("div");
+  row.className = "checkout-email-row";
+  const label = document.createElement("label");
+  label.className = "checkout-email-label";
+  label.htmlFor = "checkoutEmail";
+  label.textContent = "Purchase email";
+  const input = document.createElement("input");
+  input.id = "checkoutEmail";
+  input.className = "license-input";
+  input.type = "email";
+  input.placeholder = "name@example.com";
+  input.autocomplete = "email";
+  const help = document.createElement("p");
+  help.className = "checkout-email-help";
+  help.textContent = "Use the email you want attached to this purchase so you can recover the key later.";
+
+  row.appendChild(label);
+  row.appendChild(input);
+  row.appendChild(help);
+  purchaseGridEl.parentElement.insertBefore(row, purchaseGridEl);
+  checkoutEmailEl = input;
+  return checkoutEmailEl;
+}
 
 function showToast(message, type = "info") {
   if (!appToastEl || !message) return;
@@ -603,14 +633,23 @@ function isValidEmailAddress(value) {
 }
 
 function getCheckoutEmail(suggestedEmail = "") {
+  ensureCheckoutEmailInput();
   const cached = (localStorage.getItem(CHECKOUT_EMAIL_CACHE_KEY) || "").trim().toLowerCase();
-  const fallback = (suggestedEmail || cached).trim().toLowerCase();
-  const promptValue = typeof window.prompt === "function"
-    ? window.prompt("Enter the email used for this purchase (needed to recover your license):", fallback)
-    : fallback;
-  const email = (promptValue || "").trim().toLowerCase();
+  const fromInput = (checkoutEmailEl?.value || "").trim().toLowerCase();
+  let email = (fromInput || suggestedEmail || cached).trim().toLowerCase();
+
+  // Fallback for environments where the inline field is not visible or was left empty.
+  if (!email && typeof window.prompt === "function") {
+    const prompted = window.prompt(
+      "Enter the email used for this purchase (needed to recover your key):",
+      cached || suggestedEmail || ""
+    );
+    email = (prompted || "").trim().toLowerCase();
+  }
+
   if (!isValidEmailAddress(email)) return null;
   localStorage.setItem(CHECKOUT_EMAIL_CACHE_KEY, email);
+  if (checkoutEmailEl) checkoutEmailEl.value = email;
   return email;
 }
 
@@ -634,7 +673,9 @@ async function openPurchase(planId, btn) {
     const zarAmount = plan.usdAmount * rate;
     const checkoutEmail = getCheckoutEmail(licenseStatus?.email || "");
     if (!checkoutEmail) {
-      throw new Error("Please enter a valid purchase email.");
+      detailEl.textContent = "Enter a valid purchase email to continue checkout.";
+      showToast("Enter a valid purchase email to continue checkout.", "error");
+      return;
     }
     const paymentRef = createPaymentReference(planId);
     const returnUrl = `${PAYFAST_CONFIG.returnUrl}?${new URLSearchParams({
@@ -663,8 +704,9 @@ async function openPurchase(planId, btn) {
     showToast(`Opening ${plan.label} checkout in your browser.`, "success");
   } catch (e) {
     console.error("PayFast open failed:", e);
-    detailEl.textContent = "Could not open payment page. Please try again.";
-    showToast("Could not open the payment page. Please try again.", "error");
+    const message = e?.message || "Could not open payment page. Please try again.";
+    detailEl.textContent = message;
+    showToast(message, "error");
   } finally {
     btn.textContent = originalText;
     btn.disabled = false;
@@ -751,6 +793,7 @@ if (licenseKeyEl) {
 }
 
 (async function init() {
+  ensureCheckoutEmailInput();
   try {
     const { openAtLogin } = await window.activeDesk.getLaunchAtLogin();
     launchAtLoginEl.checked = Boolean(openAtLogin);
@@ -758,8 +801,21 @@ if (licenseKeyEl) {
     launchAtLoginEl.checked = false;
     showToast("Could not read the launch-at-login setting.", "error");
   }
+
+  if (checkoutEmailEl) {
+    const cachedCheckoutEmail = (localStorage.getItem(CHECKOUT_EMAIL_CACHE_KEY) || "").trim().toLowerCase();
+    if (isValidEmailAddress(cachedCheckoutEmail)) {
+      checkoutEmailEl.value = cachedCheckoutEmail;
+    } else if (isValidEmailAddress(licenseStatus?.email)) {
+      checkoutEmailEl.value = licenseStatus.email;
+    }
+  }
+
   updatePresetSelection();
   await loadLicenseStatus();
+  if (checkoutEmailEl && !checkoutEmailEl.value && isValidEmailAddress(licenseStatus?.email)) {
+    checkoutEmailEl.value = licenseStatus.email;
+  }
   if (!window.activeDesk?.getApps) {
     showToast("Desktop runtime is missing app detection support.", "error");
   }
