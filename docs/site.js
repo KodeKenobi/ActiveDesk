@@ -1,7 +1,7 @@
 const SITE_CONFIG = {
   payfastMode: "live", // set to "sandbox" when testing
   downloads: {
-    mac: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.5/ActiveDesk-1.0.5-arm64.dmg",
+    mac: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.5/install-activedesk.command",
     win: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.5/ActiveDesk.Setup.1.0.5.exe",
   },
   supportEmail: "kodekenobi@gmail.com",
