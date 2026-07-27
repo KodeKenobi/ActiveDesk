@@ -2,6 +2,9 @@
 
 # ActiveDesk Installer - Just double-click to install
 
+# Remove quarantine flag from this script itself to allow execution
+xattr -rd com.apple.quarantine "$0" 2>/dev/null || true
+
 set -e
 
 echo "🚀 Installing ActiveDesk..."
