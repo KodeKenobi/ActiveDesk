@@ -27,7 +27,10 @@ hdiutil attach "$DMG_PATH" -mountpoint "$MOUNT_POINT" -nobrowse
 
 # Copy app to Applications
 echo "📦 Installing to Applications folder..."
-cp -r "$MOUNT_POINT/ActiveDesk.app" /Applications/
+# Remove existing installation if present
+rm -rf /Applications/ActiveDesk.app
+# Use ditto to properly handle app bundle symlinks and resources
+ditto "$MOUNT_POINT/ActiveDesk.app" /Applications/ActiveDesk.app
 
 # Remove quarantine
 xattr -rd com.apple.quarantine /Applications/ActiveDesk.app
