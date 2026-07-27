@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as crypto from "node:crypto";
+import { Buffer } from "node:buffer";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -11,6 +12,7 @@ const PRIVATE_KEY = Deno.env.get("LICENSE_PRIVATE_KEY")!;
 
 // PayFast merchant key for verification
 const PAYFAST_MERCHANT_KEY = Deno.env.get("PAYFAST_MERCHANT_KEY")!;
+const PAYFAST_PASSPHRASE = Deno.env.get("PAYFAST_PASSPHRASE") || "";
 
 interface PayFastIPN {
   m_payment_id: string;
@@ -31,46 +33,58 @@ interface PayFastIPN {
 
 const VALID_PLANS = new Set(["weekly", "monthly", "lifetime"]);
 
-async function generateLicenseKey(plan: string, email: string): Promise<string> {
-  // Create a payload with plan, email, and timestamp
-  const timestamp = new Date().toISOString();
-  const payload = `${plan}|${email}|${timestamp}`;
-
-  // Sign with RSA private key
-  const signer = crypto.createSign("sha256");
-  signer.update(payload);
-  const signature = signer.sign(PRIVATE_KEY, "base64");
-
-  // Return base64 encoded: plan|email|timestamp|signature
-  const key = Buffer.from(`${payload}|${signature}`).toString("base64");
-  return key;
+function toBase64Url(input: Buffer): string {
+  return input.toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
 }
 
-function verifyPayFastSignature(data: Record<string, string>, signature: string): boolean {
-  const sortedData: Record<string, string> = {};
+async function generateLicenseKey(plan: string, email: string, reference: string): Promise<string> {
+  const issuedAt = Date.now();
+  const durationDays = plan === "weekly" ? 7 : plan === "monthly" ? 30 : null;
 
-  // Sort data alphabetically (excluding signature and source)
-  Object.keys(data)
-    .sort()
-    .forEach((key) => {
-      if (key !== "signature" && key !== "source") {
-        sortedData[key] = data[key];
-      }
-    });
+  const payload: Record<string, unknown> = {
+    product: "ActiveDesk",
+    plan,
+    email,
+    paymentRef: reference,
+    issuedAt,
+  };
+  if (durationDays != null) {
+    payload.expiresAt = issuedAt + durationDays * 24 * 60 * 60 * 1000;
+  }
 
-  // Build query string with merchant key
-  const parts = [PAYFAST_MERCHANT_KEY];
-  Object.entries(sortedData).forEach(([key, value]) => {
-    parts.push(`${key}=${encodeURIComponent(value)}`);
-  });
+  const body = JSON.stringify(payload);
+  const signature = crypto.sign(null, Buffer.from(body), PRIVATE_KEY);
+  return `${toBase64Url(Buffer.from(body))}.${toBase64Url(signature)}`;
+}
 
-  const toSign = parts.join("&");
+function phpUrlencode(str: string): string {
+  // PHP urlencode: encode spaces as + (not %20)
+  return encodeURIComponent(str).replace(/%20/g, "+");
+}
+
+function verifyPayFastSignature(data: Record<string, string>, signature: string, fieldOrder: string[]): boolean {
+  // Per PayFast docs: loop through fields in received order, stop (break) at 'signature'
+  // Include ALL fields (even empty), URL-encode values, then append passphrase
+  const parts: string[] = [];
+  for (const key of fieldOrder) {
+    if (key === "signature") break; // stop here, don't include signature
+    parts.push(`${key}=${phpUrlencode(data[key] ?? "")}`);
+  }
+
+  let toSign = parts.join("&");
+  if (PAYFAST_PASSPHRASE) {
+    toSign += `&passphrase=${phpUrlencode(PAYFAST_PASSPHRASE)}`;
+  }
+
   const hash = crypto.createHash("md5").update(toSign).digest("hex");
-
   return hash === signature;
 }
 
 Deno.serve(async (req) => {
+  console.log(`[webhook] Request received: ${req.method}`);
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -78,14 +92,19 @@ Deno.serve(async (req) => {
   try {
     const formData = await req.formData();
     const ipn: PayFastIPN = {} as any;
+    const fieldOrder: string[] = [];
 
-    // Convert FormData to object
+    // Convert FormData to object and track order
     formData.forEach((value, key) => {
       ipn[key as keyof PayFastIPN] = value as string;
+      fieldOrder.push(key);
     });
 
+    console.log(`[webhook] IPN received with ${Object.keys(ipn).length} fields`);
+    console.log(`[webhook] Fields in order: ${fieldOrder.join(", ")}`);
+
     // Verify signature
-    if (!verifyPayFastSignature(ipn as any, ipn.signature)) {
+    if (!verifyPayFastSignature(ipn as any, ipn.signature, fieldOrder)) {
       console.error("Invalid PayFast signature");
       return new Response("Signature verification failed", { status: 400 });
     }
@@ -142,7 +161,7 @@ Deno.serve(async (req) => {
     }
 
     // Generate license key
-    const licenseKey = await generateLicenseKey(plan, email);
+    const licenseKey = await generateLicenseKey(plan, email, reference);
 
     // Calculate expiry
     let expiresAt = null;

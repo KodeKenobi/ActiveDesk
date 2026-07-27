@@ -552,10 +552,10 @@ window.activeDesk.onHotkeyToggle(() => {
 });
 
 const PAYFAST_CONFIG = {
-  mode: "sandbox", // set to "sandbox" when testing
+  mode: "live", // set to "sandbox" when testing
   receiverByMode: {
     live: "23594634",
-    sandbox: "10043520",
+    // sandbox: "10043520",
   },
   returnUrl: "https://kodekenobi.github.io/ActiveDesk/dashboard.html",
   cancelUrl: "https://kodekenobi.github.io/ActiveDesk/",
@@ -564,7 +564,7 @@ const PAYFAST_CONFIG = {
 
 const PAYFAST_PROCESS_URLS = {
   live: "https://payment.payfast.io/eng/process",
-  sandbox: "https://sandbox.payfast.co.za/eng/process",
+  // sandbox: "https://sandbox.payfast.co.za/eng/process",
 };
 
 const CHECKOUT_EMAIL_CACHE_KEY = "activedesk_checkout_email";
@@ -648,7 +648,6 @@ function getCheckoutEmail(suggestedEmail = "") {
   }
 
   if (!isValidEmailAddress(email)) return null;
-  localStorage.setItem(CHECKOUT_EMAIL_CACHE_KEY, email);
   if (checkoutEmailEl) checkoutEmailEl.value = email;
   return email;
 }
@@ -737,6 +736,7 @@ if (activateLicenseBtn) {
       const status = await window.activeDesk.activateLicense(key);
       renderLicenseStatus(status);
       if (status?.valid) {
+        if (status?.email) localStorage.setItem(CHECKOUT_EMAIL_CACHE_KEY, status.email);
         detailEl.textContent = "License activated. If you switch machines later, recover this key from the license dashboard using your purchase email.";
         showToast("License activated successfully.", "success");
       } else {
@@ -780,7 +780,9 @@ if (clearLicenseBtn) {
 }
 
 purchaseButtons.forEach((button) => {
-  button.addEventListener("click", () => void openPurchase(button.dataset.plan, button));
+  button.addEventListener("click", () => {
+    void openPurchase(button.dataset.plan, button);
+  });
 });
 
 if (licenseKeyEl) {

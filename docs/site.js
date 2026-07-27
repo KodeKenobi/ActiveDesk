@@ -1,5 +1,5 @@
 const SITE_CONFIG = {
-  payfastMode: "sandbox", // set to "sandbox" when testing
+  payfastMode: "live", // set to "sandbox" when testing
   downloads: {
     mac: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.5/ActiveDesk-1.0.5-arm64.dmg",
     win: "https://github.com/KodeKenobi/ActiveDesk/releases/download/v1.0.5/ActiveDesk.Setup.1.0.5.exe",
@@ -8,7 +8,7 @@ const SITE_CONFIG = {
   payfast: {
     receiverByMode: {
       live: "23594634",
-      sandbox: "10043520",
+      // sandbox: "10043520",
     },
     returnUrl: "https://kodekenobi.github.io/ActiveDesk/dashboard.html",
     cancelUrl: "https://kodekenobi.github.io/ActiveDesk/",
@@ -32,7 +32,7 @@ const SITE_CONFIG = {
 
 const PAYFAST_PROCESS_URLS = {
   live: "https://payment.payfast.io/eng/process",
-  sandbox: "https://sandbox.payfast.co.za/eng/process",
+  // sandbox: "https://sandbox.payfast.co.za/eng/process",
 };
 
 const CHECKOUT_EMAIL_CACHE_KEY = "activedesk_site_checkout_email";

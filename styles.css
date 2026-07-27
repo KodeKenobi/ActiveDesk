@@ -106,6 +106,31 @@ body {
   justify-content: flex-end;
 }
 
+.btn-topbar {
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 5px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.btn-topbar:hover {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12);
+  color: #fff;
+}
+
 .btn-text {
   font-family: var(--font);
   font-size: 0.8rem;
@@ -812,8 +837,23 @@ body.is-running .control-panel {
 .app-footer {
   margin-top: 14px;
   padding-top: 12px;
+  padding-bottom: 20px;
   border-top: 1px solid var(--border);
   text-align: center;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+}
+
+.footer-divider {
+  color: var(--muted);
+  opacity: 0.5;
 }
 
 .app-footer p {
