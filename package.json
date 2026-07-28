@@ -41,7 +41,8 @@
     "appx": {
       "identityName": "KodeKenobi.ActiveDesk",
       "publisher": "CN=D56D5F59-EA92-44E2-B2F6-E550F9AA2C21",
-      "publisherDisplayName": "Kode Kenobi"
+      "publisherDisplayName": "Kode Kenobi",
+      "backgroundColor": "#0A0A0A"
     },
     "mac": {
       "target": [
